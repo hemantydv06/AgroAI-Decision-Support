@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroAI | Project Whitepaper</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --surface-color: rgba(28, 28, 30, 0.6);
+            --accent-color: #00d26a; 
+            --text-main: #f5f5f7;
+            --text-muted: #86868b;
+        }
+
+        body { 
+            background-color: var(--bg-color); color: var(--text-main); overflow-x: hidden; 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding-top: 80px; letter-spacing: -0.015em;
+        }
+        
+        #grid-bg {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+            background-size: 50px 50px; z-index: -2; transition: transform 0.1s ease-out;
+            mask-image: radial-gradient(circle at center, black 40%, transparent 90%);
+            -webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 90%);
+        }
+
+        .ambient-glow {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 60vw; height: 60vh; background: radial-gradient(circle, rgba(0, 210, 106, 0.04) 0%, transparent 70%);
+            z-index: -1; pointer-events: none;
+        }
+
+        .navbar-glass {
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%); border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-card {
+            background: var(--surface-color); backdrop-filter: blur(25px) saturate(200%);
+            -webkit-backdrop-filter: blur(25px) saturate(200%); border: 1px solid rgba(255, 255, 255, 0.08); 
+            border-radius: 24px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .hero-img {
+            border-radius: 24px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255,255,255,0.1);
+            object-fit: cover; width: 100%; height: 400px;
+        }
+
+        .btn-dynamic {
+            background: var(--accent-color); color: #000; border-radius: 30px; font-weight: 600; border: none; padding: 12px 28px;
+            transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.2s ease;
+        }
+        .btn-dynamic:hover { transform: scale(1.02); box-shadow: 0 8px 25px rgba(0, 210, 106, 0.3); color: #000; }
+        
+        .btn-outline-glass {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 30px; padding: 12px 28px; transition: all 0.2s;
+        }
+        .btn-outline-glass:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        .modal-content { 
+            background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 28px; box-shadow: 0 40px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); color: var(--text-main); 
+        }
+        .modal-header { border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding: 24px 24px 16px; }
+        .modal-footer { border-top: 1px solid rgba(255, 255, 255, 0.05); padding: 16px 24px 24px; }
+        .modal-body { padding: 24px; }
+        
+        .form-control { background-color: rgba(0, 0, 0, 0.3); color: white; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 14px 16px; transition: all 0.2s; }
+        .form-control:focus { background-color: rgba(0, 0, 0, 0.5); border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(0, 210, 106, 0.2); }
+        .form-label { color: var(--text-muted); font-size: 0.85rem; font-weight: 500; margin-bottom: 8px; }
+
+        .section-title { font-weight: 700; font-size: 1.8rem; letter-spacing: -0.02em; margin-bottom: 1.5rem; color: var(--text-main); }
+        .section-title span { color: var(--accent-color); }
+        .doc-text { color: var(--text-muted); line-height: 1.8; font-size: 1.05rem; }
+        .content-block { padding: 80px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+        /* ========================================= */
+        /* 3D CSS LEAFY PLANT MASCOT (INTERACTIVE)   */
+        /* ========================================= */
+        #plant-mascot {
+            position: absolute; right: -90px; bottom: 20px; width: 80px; height: 110px; z-index: 10;
+            display: block; cursor: pointer; pointer-events: auto; /* Made interactive */
+        }
+        .mascot-pot {
+            position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 46px; height: 32px;
+            background: linear-gradient(145deg, #d47b4a, #8b4513); border-radius: 4px 4px 12px 12px; z-index: 3;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .mascot-pot-rim {
+            position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 52px; height: 8px;
+            background: linear-gradient(145deg, #e58b5a, #a0522d); border-radius: 3px; z-index: 4;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.3);
+        }
+        .mascot-body {
+            position: absolute; bottom: 25px; left: 50%; transform-origin: bottom center; z-index: 2;
+        }
+        .mascot-stem {
+            position: absolute; bottom: 0; left: -2px; width: 4px; height: 35px;
+            background: var(--accent-color); border-radius: 2px;
+        }
+        .mascot-leaf {
+            position: absolute; background: var(--accent-color);
+        }
+        .mascot-leaf.left {
+            bottom: 10px; left: -20px; width: 22px; height: 22px;
+            border-radius: 22px 0 22px 0; transform-origin: bottom right; transform: rotate(-20deg);
+        }
+        .mascot-leaf.right {
+            bottom: 15px; right: -18px; width: 22px; height: 22px;
+            border-radius: 0 22px 0 22px; transform-origin: bottom left; transform: rotate(20deg);
+        }
+        .mascot-head {
+            position: absolute; bottom: 30px; left: -20px; width: 40px; height: 40px;
+            background: var(--accent-color); border-radius: 40px 0 40px 0; transform: rotate(45deg);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .mascot-face { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-45deg); }
+        .eye { position: absolute; width: 5px; height: 5px; background: #000; border-radius: 50%; top: 15px; }
+        .eye.left { left: 10px; }
+        .eye.right { right: 10px; }
+        .mouth {
+            position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+            width: 10px; height: 5px; border: 2px solid #000; border-top: none; border-radius: 0 0 10px 10px;
+        }
+        
+        /* Mascot Idle Animation */
+        .happy-plant .mascot-body { animation: sway 3s ease-in-out infinite alternate; }
+        @keyframes sway { 0% { transform: rotate(-12deg); } 100% { transform: rotate(12deg); } }
+
+        /* Waving Interactive Animations */
+        @keyframes wave-arm {
+            0% { transform: rotate(20deg); }
+            50% { transform: rotate(75deg); }
+            100% { transform: rotate(20deg); }
+        }
+        @keyframes bounce-body {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        /* Trigger waving on hover or when JS adds the 'is-waving' class */
+        #plant-mascot:hover .mascot-leaf.right,
+        #plant-mascot.is-waving .mascot-leaf.right {
+            animation: wave-arm 0.35s ease-in-out infinite;
+        }
+        #plant-mascot:hover .mascot-body,
+        #plant-mascot.is-waving .mascot-body {
+            animation: bounce-body 0.35s ease-in-out infinite;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="grid-bg"></div>
+<div class="ambient-glow"></div>
+
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top navbar-glass p-3">
+    <div class="container">
+        <span class="navbar-brand mb-0 h4 fw-bold">Agro<span class="text-accent">AI</span></span>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+            <ul class="navbar-nav align-items-center">
+                <li class="nav-item me-3"><a class="nav-link text-white" href="#abstract">Abstract</a></li>
+                <li class="nav-item me-3"><a class="nav-link text-white" href="#methodology">Methodology</a></li>
+                <li class="nav-item me-4"><a class="nav-link text-white" href="#results">Results</a></li>
+                <li class="nav-item me-2"><button class="btn btn-outline-glass btn-sm px-4" data-bs-toggle="modal" data-bs-target="#loginModal">Sign In</button></li>
+                <li class="nav-item"><button class="btn btn-dynamic btn-sm px-4" data-bs-toggle="modal" data-bs-target="#registerModal">Initialize System</button></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container text-center" style="padding: 150px 0 100px;">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'success' if category == 'success' else 'dark' }} border-{{ 'success' if category == 'success' else 'danger' }} w-50 mx-auto" style="border-radius: 12px; background: rgba(0,0,0,0.8); color: white;">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Wrapped Heading with Mascot -->
+    <div class="position-relative d-inline-block">
+        <h1 class="display-3 fw-bold mb-4">Autonomous Indoor Farming<br><span class="text-accent">Decision Support System</span></h1>
+        
+        <!-- The Interactive 3D CSS Leafy Plant Mascot -->
+        <div id="plant-mascot" class="happy-plant d-none d-lg-block" title="Say Hi!">
+            <div class="mascot-body">
+                <div class="mascot-stem"></div>
+                <div class="mascot-leaf left"></div>
+                <div class="mascot-leaf right"></div>
+                <div class="mascot-head">
+                    <div class="mascot-face">
+                        <div class="eye left"></div>
+                        <div class="eye right"></div>
+                        <div class="mouth"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="mascot-pot">
+                <div class="mascot-pot-rim"></div>
+            </div>
+        </div>
+    </div>
+
+    <p class="lead mx-auto mb-5" style="max-width: 600px; color: var(--text-muted);">A deep learning approach to agricultural telemetry processing, crop yield optimization, and live market integration.</p>
+    <div class="d-flex justify-content-center gap-3">
+        <a href="#abstract" class="btn btn-dynamic btn-lg px-5">Read Whitepaper</a>
+        <button class="btn btn-outline-glass btn-lg px-4" data-bs-toggle="modal" data-bs-target="#loginModal">Access Dashboard</button>
+    </div>
+</div>
+
+<div id="abstract" class="container content-block">
+    <div class="row align-items-center">
+        <div class="col-lg-6 pe-lg-5 mb-5 mb-lg-0">
+            <h2 class="section-title">1. <span>Abstract</span> & Intro</h2>
+            <p class="doc-text mb-4">This project introduces a state-of-the-art machine learning architecture designed to autonomously recommend optimal crops for indoor farming environments. By analyzing real-time data inputs such as Nitrogen, Phosphorus, Potassium, temperature, humidity, and soil pH, the system achieves a highly accurate classification across 19 distinct organic crops.</p>
+            <p class="doc-text">Precision agriculture is rapidly evolving, shifting from traditional intuition-based farming to data-driven, highly controlled environments. This system acts as an autonomous neural bridge, processing local environmental contexts to maximize both biological yield and economic return.</p>
+        </div>
+        <div class="col-lg-6">
+            <img src="{{ url_for('static', filename='hero-farm.png') }}" alt="Modern Indoor Farming Setup" class="hero-img">
+        </div>
+    </div>
+</div>
+
+<div id="methodology" class="container content-block border-0 pb-0">
+    <div class="glass-card p-5">
+        <div class="row align-items-center">
+            <div class="col-lg-5 order-2 order-lg-1">
+                <img src="{{ url_for('static', filename='tech-plant.png') }}" alt="Plant Analysis" class="hero-img" style="height: 350px;">
+            </div>
+            <div class="col-lg-7 ps-lg-5 order-1 order-lg-2 mb-5 mb-lg-0">
+                <h2 class="section-title">4. Problem <span>Statement</span></h2>
+                <p class="doc-text mb-5">How can we accurately predict the most biologically viable and economically profitable crop out of 19 variations, given a constantly shifting vector of 7 environmental variables in an indoor farming setup?</p>
+                <h2 class="section-title">5. <span>Methodology</span></h2>
+                <p class="doc-text">The solution utilizes a Keras/TensorFlow Sequential Neural Network. The architecture employs Dense layers for initial abstraction, followed by Batch Normalization to ensure mathematical stability during gradient descent. Dropout layers are strategically placed to heavily penalize overfitting. The final layer utilizes a softmax activation function to output a precise probability distribution.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="dataset" class="container content-block">
+    <h2 class="section-title text-center mb-5">6. Dataset and <span>Features</span></h2>
+    <div class="row align-items-center">
+        <div class="col-lg-6 mb-4 mb-lg-0">
+            <p class="doc-text">The model was trained on a heavily vetted agricultural dataset, subsequently cleaned to remove massive-scale exterior crops (like wheat and maize) to specialize purely on high-value, viable indoor variants (e.g., Coffee, Pomegranate, Kidney Beans). <br><br>Features underwent rigorous preprocessing using `StandardScaler` to normalize distributions, and a custom engineered feature—`NPK_sum`—was introduced to provide the network with a synthesized view of total soil nutrient density.</p>
+        </div>
+        <div class="col-lg-6">
+            <div class="glass-card p-4">
+                <canvas id="aiChart" width="400" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="results" class="container content-block">
+    <div class="row align-items-center">
+        <div class="col-lg-6 pe-lg-5 mb-5 mb-lg-0">
+            <h2 class="section-title">7. Results & <span>Conclusion</span></h2>
+            <p class="doc-text">The deployment of a Deep Learning ANN for indoor farming telemetry proves highly effective. The model converged successfully within 100 epochs, utilizing an early stopping callback to restore best weights. Evaluation on the blind test split yielded a categorical accuracy exceeding baseline expectations.</p>
+            <div class="d-flex align-items-center mt-4 mb-4 p-4 rounded-4" style="background: rgba(0, 210, 106, 0.1); border-left: 4px solid var(--accent-color);">
+                <h1 class="text-accent fw-bold me-4 mb-0" style="font-size: 3rem;">98%</h1>
+                <span style="color: var(--text-main); font-weight: 500;">Peak Validation Accuracy<br><small class="text-muted">on 30% test split</small></span>
+            </div>
+            <p class="doc-text">By packaging the `.h5` model into a Flask-based web server equipped with asynchronous Javascript, the predictive power of the model has been successfully abstracted into an accessible, real-time tool for modern agricultural operators.</p>
+        </div>
+        <div class="col-lg-6">
+            <img src="{{ url_for('static', filename='harvest.png') }}" alt="Farmer inspecting yield" class="hero-img">
+        </div>
+    </div>
+</div>
+
+<footer class="py-5 mt-5" style="border-top: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.4); backdrop-filter: blur(20px);">
+    <div class="container" style="max-width: 1200px;">
+        <div class="row align-items-center">
+            <div class="col-md-4 text-center text-md-start mb-4 mb-md-0">
+                <h5 class="fw-bold mb-2">Agro<span class="text-accent">AI</span> <span style="font-size: 0.9rem; font-weight: normal; color: var(--text-muted);">| Control Node</span></h5>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0;">Developed by Hemant Yadav (2K24CSUN01285)</p>
+            </div>
+            <div class="col-md-4 text-center mb-4 mb-md-0">
+                <div style="display: inline-flex; align-items: center; background: rgba(0, 210, 106, 0.1); padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(0, 210, 106, 0.2);">
+                    <span style="display: inline-block; width: 8px; height: 8px; background-color: var(--accent-color); border-radius: 50%; box-shadow: 0 0 10px var(--accent-color); margin-right: 10px; animation: pulse 1.5s infinite;"></span>
+                    <span style="color: var(--text-main); font-size: 0.85rem; font-weight: 500; letter-spacing: 0.05em;">SYSTEM SECURE & ONLINE</span>
+                </div>
+            </div>
+            <div class="col-md-4 text-center text-md-end">
+                <a href="/" class="text-decoration-none me-4" style="color: var(--text-muted); font-size: 0.95rem; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.color='#00d26a'" onmouseout="this.style.color='var(--text-muted)'">About Model</a>
+                <a href="mailto:support@agroai.com" class="text-decoration-none" style="color: var(--text-muted); font-size: 0.95rem; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.color='#00d26a'" onmouseout="this.style.color='var(--text-muted)'">Contact Support</a>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<div class="modal fade" id="loginModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0">
+      <div class="modal-header border-0 pb-0 justify-content-center position-relative">
+        <h4 class="modal-title fw-bold mt-3">Operator Login</h4>
+        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" style="opacity: 0.5;"></button>
+      </div>
+      <form action="/login" method="POST">
+          <div class="modal-body px-4 pt-4 pb-2">
+            <div class="mb-4"><label class="form-label">Username</label><input type="text" name="username" class="form-control" required placeholder="Enter system ID"></div>
+            <div class="mb-3"><label class="form-label">Password</label><input type="password" name="password" class="form-control" required placeholder="••••••••"></div>
+          </div>
+          <div class="modal-footer border-0 pt-0 px-4 pb-4">
+            <button type="submit" class="btn btn-dynamic w-100 py-3 mt-2">Initialize Session</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="registerModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0">
+      <div class="modal-header border-0 pb-0 justify-content-center position-relative">
+        <h4 class="modal-title fw-bold mt-3">System Registration</h4>
+        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" style="opacity: 0.5;"></button>
+      </div>
+      <form action="/register" method="POST">
+          <div class="modal-body px-4 pt-4 pb-2">
+            <div class="mb-4"><label class="form-label">Select Username</label><input type="text" name="username" class="form-control" required placeholder="Choose a unique ID"></div>
+            <div class="mb-3"><label class="form-label">Secure Password</label><input type="password" name="password" class="form-control" required placeholder="Minimum 8 characters"></div>
+          </div>
+          <div class="modal-footer border-0 pt-0 px-4 pb-4">
+            <button type="submit" class="btn btn-dynamic w-100 py-3 mt-2">Create Account</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Grid Background Movement
+    document.addEventListener('mousemove', (e) => {
+        const x = (e.clientX / window.innerWidth - 0.5) * 30;
+        const y = (e.clientY / window.innerHeight - 0.5) * 30;
+        document.getElementById('grid-bg').style.transform = `translate(${x}px, ${y}px)`;
+    });
+
+    // Interactive Mascot Click Animation
+    const mascot = document.getElementById('plant-mascot');
+    mascot.addEventListener('click', function() {
+        this.classList.add('is-waving');
+        setTimeout(() => {
+            this.classList.remove('is-waving');
+        }, 2000); // Waves for exactly 2 seconds when clicked
+    });
+
+    // Chart.js Initialization
+    const ctx = document.getElementById('aiChart').getContext('2d');
+    Chart.defaults.color = '#86868b';
+    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+    
+    const aiChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['N', 'P', 'K', 'Temp', 'Humid', 'pH', 'Prox', 'NPK_Sum'],
+            datasets: [{
+                label: 'Relative Feature Importance',
+                data: [0.75, 0.62, 0.60, 0.95, 0.88, 0.82, 0.45, 0.89],
+                backgroundColor: 'rgba(0, 210, 106, 0.8)',
+                borderRadius: 4,
+                borderSkipped: false,
+                barThickness: 16
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { display: false },
+                x: { grid: { display: false }, border: { display: false } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { backgroundColor: 'rgba(28, 28, 30, 0.9)', titleColor: '#f5f5f7', bodyColor: '#00d26a', padding: 12, cornerRadius: 8, displayColors: false }
+            }
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Dashboard | Control Node</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #000000; --surface-color: rgba(28, 28, 30, 0.65);
+            --accent-color: #00d26a; --text-main: #f5f5f7; --text-muted: #86868b;
+            --warning-color: #ff9f0a; --danger-color: #ff453a; --info-color: #0a84ff;
+        }
+
+        body { 
+            background-color: var(--bg-color); color: var(--text-main); overflow-x: hidden; 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+            letter-spacing: -0.015em; padding-top: 80px;
+        }
+        
+        #grid-bg {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+            background-size: 50px 50px; z-index: -2; transition: transform 0.1s ease-out;
+            mask-image: radial-gradient(circle at center, black 30%, transparent 90%);
+            -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 90%);
+        }
+
+        .ambient-glow {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 50vw; height: 50vh; background: radial-gradient(circle, rgba(0, 210, 106, 0.05) 0%, transparent 70%);
+            z-index: -1; pointer-events: none;
+        }
+
+        .glass-card {
+            background: var(--surface-color); backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 28px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+            transition: all 0.4s ease;
+        }
+
+        .glowing-wrapper {
+            position: relative; border-radius: 30px; padding: 2px;
+            background: linear-gradient(45deg, #00d26a, #0a84ff, #00d26a, #0a84ff);
+            background-size: 300% 300%; animation: gradientGlow 6s ease infinite; box-shadow: 0 0 30px rgba(0, 210, 106, 0.15);
+        }
+        .glowing-wrapper .glass-card { border: none; height: 100%; }
+
+        @keyframes gradientGlow {
+            0% { background-position: 0% 50%; box-shadow: 0 0 20px rgba(0, 210, 106, 0.2); }
+            50% { background-position: 100% 50%; box-shadow: 0 0 40px rgba(10, 132, 255, 0.3); }
+            100% { background-position: 0% 50%; box-shadow: 0 0 20px rgba(0, 210, 106, 0.2); }
+        }
+
+        .pulse-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-color); box-shadow: 0 0 10px var(--accent-color); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 15px var(--accent-color); } 100% { transform: scale(0.95); opacity: 0.8; } }
+
+        .form-control { 
+            background-color: rgba(0, 0, 0, 0.4); color: #fff !important; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px;
+            padding: 16px 20px; font-size: 1.05rem; font-weight: 500; transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .form-control:focus { background-color: rgba(0, 0, 0, 0.6); border-color: var(--accent-color); box-shadow: 0 0 0 4px rgba(0, 210, 106, 0.15); transform: translateY(-2px); }
+        .form-label { color: var(--text-muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; margin-left: 5px; }
+
+        .btn-dynamic {
+            background: var(--accent-color); color: #000; border-radius: 20px; font-weight: 600; border: none; padding: 18px; font-size: 1.1rem;
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1); box-shadow: 0 4px 15px rgba(0, 210, 106, 0.2); cursor: pointer;
+        }
+        .btn-dynamic:hover { transform: translateY(-2px) scale(1.01); box-shadow: 0 12px 30px rgba(0, 210, 106, 0.4); color: #000; }
+        .btn-dynamic:disabled { background: #222; color: #666; transform: none; box-shadow: none; cursor: not-allowed; }
+        
+        .btn-outline-glass {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 20px; padding: 18px; transition: all 0.2s; font-weight: 600; cursor: pointer; width: 100%;
+        }
+        .btn-outline-glass:hover { background: rgba(255,255,255,0.1); color: white; border-color: rgba(255,255,255,0.3); }
+
+        .sim-btn {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted);
+            border-radius: 8px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+            font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .sim-btn:hover { background: rgba(0, 210, 106, 0.2); color: var(--accent-color); border-color: var(--accent-color); }
+
+        .view-section { display: none; opacity: 0; transition: opacity 0.5s ease-in-out; }
+        .view-section.active { display: block; opacity: 1; }
+
+        .sensor-box { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 15px; text-align: center; }
+        .sensor-val { font-size: 1.8rem; font-weight: bold; color: var(--accent-color); min-width: 80px; }
+        .sensor-unit { font-size: 0.9rem; color: var(--text-muted); }
+        .data-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 8px; }
+
+        .health-item { padding: 16px; border-radius: 12px; margin-bottom: 10px; font-weight: 500; font-size: 0.95rem; }
+        .health-optimal { background: rgba(0, 210, 106, 0.1); border-left: 4px solid var(--accent-color); color: var(--accent-color); }
+        .health-warning { background: rgba(255, 159, 10, 0.1); border-left: 4px solid var(--warning-color); color: var(--warning-color); }
+        .health-critical { background: rgba(255, 69, 58, 0.1); border-left: 4px solid var(--danger-color); color: var(--danger-color); }
+
+        .btn-resolve {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;
+            border-radius: 20px; padding: 6px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: 0.2s;
+        }
+        .btn-resolve:hover { background: var(--text-main); color: black; }
+
+        .divider { width: 1px; background: rgba(255,255,255,0.1); height: 80px; margin: auto; }
+
+        /* ========================================= */
+        /* 3D CSS LEAFY PLANT MASCOT (TOP CENTER)    */
+        /* ========================================= */
+        #plant-mascot {
+            position: fixed; top: 10px; left: 50%; transform: translateX(-50%); width: 80px; height: 110px; z-index: 1050;
+            pointer-events: none; display: none; /* Hidden until live mode */
+        }
+        .mascot-pot {
+            position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 46px; height: 32px;
+            background: linear-gradient(145deg, #d47b4a, #8b4513); border-radius: 4px 4px 12px 12px; z-index: 3;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .mascot-pot-rim {
+            position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 52px; height: 8px;
+            background: linear-gradient(145deg, #e58b5a, #a0522d); border-radius: 3px; z-index: 4;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.3);
+        }
+        .mascot-body {
+            position: absolute; bottom: 25px; left: 50%; transform-origin: bottom center; z-index: 2;
+            transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .mascot-stem {
+            position: absolute; bottom: 0; left: -2px; width: 4px; height: 35px;
+            background: var(--accent-color); border-radius: 2px;
+            transition: background 0.8s ease;
+        }
+        .mascot-leaf {
+            position: absolute; background: var(--accent-color); transition: all 0.8s ease;
+        }
+        .mascot-leaf.left {
+            bottom: 10px; left: -20px; width: 22px; height: 22px;
+            border-radius: 22px 0 22px 0; transform-origin: bottom right; transform: rotate(-20deg);
+        }
+        .mascot-leaf.right {
+            bottom: 15px; right: -18px; width: 22px; height: 22px;
+            border-radius: 0 22px 0 22px; transform-origin: bottom left; transform: rotate(20deg);
+        }
+        .mascot-head {
+            position: absolute; bottom: 30px; left: -20px; width: 40px; height: 40px;
+            background: var(--accent-color); border-radius: 40px 0 40px 0; transform: rotate(45deg);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: all 0.8s ease;
+        }
+        .mascot-face { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-45deg); }
+        .eye { position: absolute; width: 5px; height: 5px; background: #000; border-radius: 50%; top: 15px; transition: all 0.3s; }
+        .eye.left { left: 10px; }
+        .eye.right { right: 10px; }
+        .mouth {
+            position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+            width: 10px; height: 5px; border: 2px solid #000; border-top: none; border-radius: 0 0 10px 10px;
+            transition: all 0.5s ease;
+        }
+
+        /* Mascot Health States */
+        .happy-plant .mascot-body { animation: sway 3s ease-in-out infinite alternate; }
+        
+        .sick-plant .mascot-body { transform: rotate(25deg); } /* Droops over */
+        .sick-plant .mascot-stem, .sick-plant .mascot-head, .sick-plant .mascot-leaf { background: #9e9d24; } /* Turns pale/sickly */
+        .sick-plant .mascot-leaf.left { transform: rotate(-60deg); } /* Leaves sag */
+        .sick-plant .mascot-leaf.right { transform: rotate(60deg); }
+        .sick-plant .mouth {
+            border-top: 2px solid #000; border-bottom: none; border-radius: 10px 10px 0 0;
+            transform: translateX(-50%) translateY(3px); width: 12px; height: 3px;
+        }
+        .sick-plant .eye { top: 18px; height: 2px; } /* Squinting tired eyes */
+
+        @keyframes sway { 0% { transform: rotate(-12deg); } 100% { transform: rotate(12deg); } }
+
+        /* Setup Loading Animation */
+        .plant-loader { width: 80px; height: 80px; margin: 0 auto 30px; position: relative; }
+        .loader-leaf { position: absolute; bottom: 0; left: 50%; width: 40px; height: 40px; background: var(--accent-color); border-radius: 0 40px 0 40px; transform-origin: bottom left; box-shadow: 0 0 20px rgba(0, 210, 106, 0.4); animation: grow 2s infinite alternate ease-in-out; }
+        .loader-leaf:nth-child(2) { transform: scaleX(-1) rotate(-20deg); animation-delay: 0.5s; }
+        @keyframes grow { 0% { transform: scale(0.5) rotate(10deg); opacity: 0.6; } 100% { transform: scale(1) rotate(20deg); opacity: 1; } }
+
+    </style>
+</head>
+<body>
+
+<div id="grid-bg"></div>
+<div class="ambient-glow"></div>
+
+<!-- The 3D CSS Leafy Plant Mascot -->
+<div id="plant-mascot" class="happy-plant">
+    <div class="mascot-body">
+        <div class="mascot-stem"></div>
+        <div class="mascot-leaf left"></div>
+        <div class="mascot-leaf right"></div>
+        <div class="mascot-head">
+            <div class="mascot-face">
+                <div class="eye left"></div>
+                <div class="eye right"></div>
+                <div class="mouth"></div>
+            </div>
+        </div>
+    </div>
+    <div class="mascot-pot">
+        <div class="mascot-pot-rim"></div>
+    </div>
+</div>
+
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top p-3" style="background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05);">
+    <div class="container-fluid px-4">
+        <span class="navbar-brand mb-0 h4 fw-bold">Agro<span class="text-accent">AI</span> <span class="text-muted fw-normal fs-6 ms-2">| Control Node</span></span>
+        <div class="d-flex align-items-center">
+            <span class="me-4 text-muted small">Operator: <strong class="text-white">{{ username }}</strong></span>
+            <a href="/logout" class="btn btn-sm" style="color: #ff453a; border: 1px solid rgba(255,69,58,0.3); border-radius: 20px; padding: 6px 16px; transition: 0.2s;">Disconnect</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid px-4 py-5 mt-3" style="max-width: 1400px;">
+    
+    <!-- VIEW 1: GATEWAY SELECTION -->
+    <div id="view-gateway" class="view-section active text-center" style="margin-top: 10vh;">
+        <h2 class="display-5 fw-bold mb-3">Initialize <span class="text-accent">Telemetry Source</span></h2>
+        <p class="text-muted mb-5">Select how the neural node will receive environmental data.</p>
+        
+        <div class="row justify-content-center g-4 mx-auto" style="max-width: 900px;">
+            <div class="col-md-6">
+                <div class="glass-card p-5 h-100 d-flex flex-column justify-content-center" style="cursor: pointer;" onclick="switchView('view-sensor-setup')">
+                    <h1 style="font-size: 3rem; margin-bottom: 20px;">📡</h1>
+                    <h4 class="fw-bold text-white mb-3">Connect IoT Sensors</h4>
+                    <p class="text-muted small mb-4">Establish a live datalink with sensor kits for real-time AI monitoring and automated system healing.</p>
+                    <button class="btn btn-dynamic mt-auto">Initialize Connection</button>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="glass-card p-5 h-100 d-flex flex-column justify-content-center" style="cursor: pointer;" onclick="activateManualMode()">
+                    <h1 style="font-size: 3rem; margin-bottom: 20px;">⌨️</h1>
+                    <h4 class="fw-bold text-white mb-3">Manual Entry Mode</h4>
+                    <p class="text-muted small mb-4">Manually input historical or point-in-time soil and ambient readings to execute isolated predictions.</p>
+                    <button class="btn btn-outline-glass mt-auto">Enter Form</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 2: SENSOR SETUP FORM -->
+    <div id="view-sensor-setup" class="view-section">
+        <div class="row justify-content-center">
+            <div class="col-lg-6">
+                <div class="text-center mb-4"><h3 class="fw-bold mb-1">Hardware <span class="text-accent">Configuration</span></h3><p class="text-muted">Register your probe MAC addresses to the network.</p></div>
+                <div class="glass-card p-5">
+                    <form id="sensorConfigForm">
+                        <div class="mb-4"><label class="form-label">Master Kit Configuration ID</label><input type="text" class="form-control" required placeholder="e.g. AGR-ESP32-882A"></div>
+                        <div class="row g-3">
+                            <div class="col-md-4"><label class="form-label">Nitrogen Probe ID</label><input type="text" class="form-control" placeholder="Auto-Detect"></div>
+                            <div class="col-md-4"><label class="form-label">Phosphorus Probe ID</label><input type="text" class="form-control" placeholder="Auto-Detect"></div>
+                            <div class="col-md-4"><label class="form-label">Potassium Probe ID</label><input type="text" class="form-control" placeholder="Auto-Detect"></div>
+                            <div class="col-md-6"><label class="form-label">Temp/Hum Module ID</label><input type="text" class="form-control" placeholder="DHT-22-Node"></div>
+                            <div class="col-md-6"><label class="form-label">Soil pH Sensor ID</label><input type="text" class="form-control" placeholder="PH-Sub-01"></div>
+                        </div>
+                        <button type="submit" class="btn btn-dynamic w-100 mt-5">Establish Encrypted Uplink</button>
+                        <button type="button" class="btn btn-link text-muted w-100 mt-2 text-decoration-none" onclick="switchView('view-gateway')">Cancel Configuration</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 3: CONNECTION ANIMATION -->
+    <div id="view-loading" class="view-section text-center" style="margin-top: 15vh;">
+        <div class="plant-loader">
+            <div class="loader-leaf"></div><div class="loader-leaf"></div>
+        </div>
+        <h3 class="fw-bold text-white mb-2" id="loadingText">Establishing Node Connection...</h3>
+        <p class="text-muted" id="loadingSubtext">Handshaking with Kit AGR-ESP32...</p>
+    </div>
+
+    <!-- VIEW 4: THE MAIN DASHBOARD -->
+    <div id="view-dashboard" class="view-section">
+        <div class="row gx-5">
+            
+            <!-- LEFT COLUMN -->
+            <div class="col-xl-8 mb-4">
+                
+                <!-- Section A: Manual Form -->
+                <div id="manual-input-section">
+                    <div class="text-start mb-4 ms-2">
+                        <h3 class="fw-bold mb-1">Environment <span class="text-accent">Telemetry</span></h3>
+                        <p style="color: var(--text-muted);">Input sensor readings to execute neural sequence.</p>
+                    </div>
+                    <div class="glass-card p-5 mb-4">
+                        <form id="predictionForm">
+                            <div class="row g-4">
+                                <div class="col-md-4"><label class="form-label">Nitrogen (N)</label><input type="number" step="any" min="0" max="250" class="form-control" name="N" required></div>
+                                <div class="col-md-4"><label class="form-label">Phosphorus (P)</label><input type="number" step="any" min="0" max="250" class="form-control" name="P" required></div>
+                                <div class="col-md-4"><label class="form-label">Potassium (K)</label><input type="number" step="any" min="0" max="250" class="form-control" name="K" required></div>
+                                <div class="col-md-6 mt-4"><label class="form-label">Temperature (°C)</label><input type="number" step="any" min="0" max="60" class="form-control" name="temperature" required></div>
+                                <div class="col-md-6 mt-4"><label class="form-label">Humidity (%)</label><input type="number" step="any" min="0" max="100" class="form-control" name="humidity" required></div>
+                                <div class="col-md-6 mt-4"><label class="form-label">Soil pH Level</label><input type="number" step="any" min="0" max="14" class="form-control" name="ph" required></div>
+                                <div class="col-md-6 mt-4"><label class="form-label">Urban Proximity Index</label><input type="number" step="any" min="0" max="100" class="form-control" name="urban_area_proximity" required></div>
+                            </div>
+                            <button type="submit" class="btn btn-dynamic w-100 mt-5">Execute Prediction Matrix</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Section B: Live Sensor Stream (PROTOTYPE CONTROLS) -->
+                <div id="live-sensor-section" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-4 ms-2">
+                        <div>
+                            <h3 class="fw-bold mb-1">Live <span class="text-accent">Telemetry Stream</span></h3>
+                            <p style="color: var(--text-muted); margin-bottom: 0;">Presentation Mode: Use controls to simulate environment changes.</p>
+                        </div>
+                        <button class="btn btn-outline-glass btn-sm" style="width: auto; padding: 8px 20px;" onclick="executeLivePrediction()">Force AI Analysis</button>
+                    </div>
+
+                    <!-- Interactive Live Values Grid -->
+                    <div class="glass-card p-4 mb-4">
+                        <div class="row g-3">
+                            <div class="col-md-4"><div class="sensor-box"><div class="data-label">Nitrogen (N)</div><div class="d-flex justify-content-center align-items-center"><button class="sim-btn" onclick="simAdjust('N', -10)">-</button><div class="sensor-val" id="live_n">--</div><button class="sim-btn" onclick="simAdjust('N', 10)">+</button></div></div></div>
+                            <div class="col-md-4"><div class="sensor-box"><div class="data-label">Phosphorus (P)</div><div class="d-flex justify-content-center align-items-center"><button class="sim-btn" onclick="simAdjust('P', -10)">-</button><div class="sensor-val" id="live_p">--</div><button class="sim-btn" onclick="simAdjust('P', 10)">+</button></div></div></div>
+                            <div class="col-md-4"><div class="sensor-box"><div class="data-label">Potassium (K)</div><div class="d-flex justify-content-center align-items-center"><button class="sim-btn" onclick="simAdjust('K', -10)">-</button><div class="sensor-val" id="live_k">--</div><button class="sim-btn" onclick="simAdjust('K', 10)">+</button></div></div></div>
+                            <div class="col-md-4"><div class="sensor-box"><div class="data-label">Temperature</div><div class="d-flex justify-content-center align-items-center"><button class="sim-btn" onclick="simAdjust('temp', -3)">-</button><div class="sensor-val" id="live_t">--<span class="sensor-unit">°C</span></div><button class="sim-btn" onclick="simAdjust('temp', 3)">+</button></div></div></div>
+                            <div class="col-md-4"><div class="sensor-box"><div class="data-label">Humidity</div><div class="d-flex justify-content-center align-items-center"><button class="sim-btn" onclick="simAdjust('hum', -6)">-</button><div class="sensor-val" id="live_h">--<span class="sensor-unit">%</span></div><button class="sim-btn" onclick="simAdjust('hum', 6)">+</button></div></div></div>
+                            <div class="col-md-4"><div class="sensor-box"><div class="data-label">Soil pH</div><div class="d-flex justify-content-center align-items-center"><button class="sim-btn" onclick="simAdjust('ph', -0.5)">-</button><div class="sensor-val" id="live_ph">--</div><button class="sim-btn" onclick="simAdjust('ph', 0.5)">+</button></div></div></div>
+                        </div>
+                    </div>
+
+                    <!-- Botanical Health Diagnostics -->
+                    <div class="glass-card p-4 mb-4">
+                        <div class="d-flex align-items-center mb-3 pb-2" style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <h5 class="fw-bold mb-0">Autonomous <span class="text-accent">Decision Support</span></h5>
+                        </div>
+                        <div id="health-diagnostics-container">
+                            <div class="health-item health-optimal">Analyzing system data streams...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prediction Results -->
+                <div class="glass-card p-5 mt-4" id="resultCard" style="display: none; opacity: 0;">
+                    <div class="d-flex align-items-center mb-4 pb-3" style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <div class="pulse-dot me-3"></div><h5 class="mb-0 fw-bold">Analysis Complete</h5>
+                    </div>
+                    <div class="row text-center align-items-center pt-2">
+                        <div class="col-sm-4"><p class="data-label">Optimal Crop</p><h2 id="resCrop" class="data-value">-</h2></div>
+                        <div class="col-sm-1 d-none d-sm-block"><div class="divider"></div></div>
+                        <div class="col-sm-3"><p class="data-label">AI Confidence</p><h3 id="resConf" class="data-value" style="color: #0a84ff;">-</h3></div>
+                        <div class="col-sm-1 d-none d-sm-block"><div class="divider"></div></div>
+                        <div class="col-sm-3"><p class="data-label">Est. Market Value</p><h3 id="resPrice" class="data-value text-accent">-</h3></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Analytics Panel -->
+            <div class="col-xl-4">
+                <div class="sticky-top" style="top: 100px; z-index: 10; margin-bottom: 2rem;">
+                    <div class="glowing-wrapper h-100">
+                        <div class="glass-card p-4 d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <h5 class="fw-bold mb-0">Neural Node <span class="text-accent">Activity</span></h5>
+                                <div class="d-flex align-items-center"><span class="text-muted small me-2" id="nodeStatus">Offline</span><div class="pulse-dot" id="nodePulse" style="background: #444; box-shadow: none; animation: none;"></div></div>
+                            </div>
+                            <div class="row text-center mb-4">
+                                <div class="col-6 mb-3"><p class="data-label">Engine</p><span class="text-white fw-bold">Keras v3.0</span></div>
+                                <div class="col-6 mb-3"><p class="data-label">Latency</p><span class="text-white fw-bold">14 ms</span></div>
+                                <div class="col-6"><p class="data-label">Epochs</p><span class="text-white fw-bold">100 / 100</span></div>
+                                <div class="col-6"><p class="data-label">Classes</p><span class="text-white fw-bold text-accent">19 Active</span></div>
+                            </div>
+                            <div class="mt-auto pt-3" style="border-top: 1px solid rgba(255,255,255,0.05);">
+                                <p class="data-label mb-3">Current Neural Pathway Weighting</p>
+                                <div style="position: relative; height: 260px; width: 100%;"><canvas id="liveChart"></canvas></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="py-5 mt-5" style="border-top: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.4); backdrop-filter: blur(20px);">
+    <div class="container" style="max-width: 1200px;">
+        <div class="row align-items-center">
+            <div class="col-md-4 text-center text-md-start mb-4 mb-md-0">
+                <h5 class="fw-bold mb-2">Agro<span class="text-accent">AI</span></h5>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0;">Developed by Hemant Yadav (2K24CSUN01285)</p>
+            </div>
+            <div class="col-md-4 text-center mb-4 mb-md-0">
+                <div style="display: inline-flex; align-items: center; background: rgba(0, 210, 106, 0.1); padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(0, 210, 106, 0.2);">
+                    <span style="display: inline-block; width: 8px; height: 8px; background-color: var(--accent-color); border-radius: 50%; box-shadow: 0 0 10px var(--accent-color); margin-right: 10px; animation: pulse 1.5s infinite;"></span>
+                    <span style="color: var(--text-main); font-size: 0.85rem; font-weight: 500; letter-spacing: 0.05em;">SYSTEM SECURE & ONLINE</span>
+                </div>
+            </div>
+            <div class="col-md-4 text-center text-md-end">
+                <a href="/" class="text-decoration-none me-4" style="color: var(--text-muted); font-size: 0.95rem; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.color='#00d26a'" onmouseout="this.style.color='var(--text-muted)'">About Model</a>
+                <a href="mailto:support@agroai.com" class="text-decoration-none" style="color: var(--text-muted); font-size: 0.95rem; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.color='#00d26a'" onmouseout="this.style.color='var(--text-muted)'">Contact Support</a>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script>
+    let liveDataInterval;
+    let currentLiveData = { N: 100, P: 50, K: 50, temp: 24.5, hum: 60, ph: 6.5, prox: 10 };
+    let isLiveMode = false;
+
+    function switchView(viewId) {
+        document.querySelectorAll('.view-section').forEach(el => { el.classList.remove('active'); setTimeout(() => el.style.display = 'none', 500); });
+        setTimeout(() => {
+            const target = document.getElementById(viewId);
+            target.style.display = 'block';
+            setTimeout(() => target.classList.add('active'), 50);
+        }, 500);
+    }
+
+    function activateManualMode() {
+        isLiveMode = false;
+        document.getElementById('manual-input-section').style.display = 'block';
+        document.getElementById('live-sensor-section').style.display = 'none';
+        document.getElementById('plant-mascot').style.display = 'none'; // Hide mascot
+        document.getElementById('nodeStatus').innerText = 'Local Mode';
+        switchView('view-dashboard');
+    }
+
+    document.getElementById('sensorConfigForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        switchView('view-loading');
+        
+        setTimeout(() => { document.getElementById('loadingText').innerText = "Calibrating Probes..."; document.getElementById('loadingSubtext').innerText = "Aligning telemetry matrices..."; }, 1500);
+        setTimeout(() => { document.getElementById('loadingText').innerText = "Uplink Secure"; document.getElementById('loadingSubtext').innerText = "Streaming data..."; }, 3000);
+        
+        setTimeout(() => {
+            isLiveMode = true;
+            document.getElementById('manual-input-section').style.display = 'none';
+            document.getElementById('live-sensor-section').style.display = 'block';
+            document.getElementById('plant-mascot').style.display = 'block'; // Show mascot
+            document.getElementById('nodeStatus').innerText = 'Online / Live';
+            document.getElementById('nodePulse').style.background = 'var(--accent-color)';
+            document.getElementById('nodePulse').style.boxShadow = '0 0 10px var(--accent-color)';
+            document.getElementById('nodePulse').style.animation = 'pulse 1.5s infinite';
+            switchView('view-dashboard');
+            startLiveStream();
+        }, 4000);
+    });
+
+    function simAdjust(sensor, amount) {
+        currentLiveData[sensor] += amount;
+        if(sensor === 'hum' && currentLiveData.hum > 100) currentLiveData.hum = 100;
+        if(sensor === 'hum' && currentLiveData.hum < 0) currentLiveData.hum = 0;
+        if(sensor === 'ph' && currentLiveData.ph < 0) currentLiveData.ph = 0;
+        if(sensor === 'ph' && currentLiveData.ph > 14) currentLiveData.ph = 14;
+        updateLiveUI(); 
+    }
+
+    function executeSystemHeal(sensor, requiredBoost) {
+        simAdjust(sensor, requiredBoost);
+    }
+
+    function startLiveStream() {
+        updateLiveUI(); 
+        liveDataInterval = setInterval(() => {
+            currentLiveData.N += (Math.random() - 0.5) * 1;
+            currentLiveData.P += (Math.random() - 0.5) * 0.5;
+            currentLiveData.K += (Math.random() - 0.5) * 0.5;
+            currentLiveData.temp += (Math.random() - 0.5) * 0.2;
+            currentLiveData.hum += (Math.random() - 0.5) * 0.5;
+            currentLiveData.ph += (Math.random() - 0.5) * 0.02;
+            updateLiveUI();
+        }, 2000);
+    }
+
+    function updateLiveUI() {
+        document.getElementById('live_n').innerText = currentLiveData.N.toFixed(1);
+        document.getElementById('live_p').innerText = currentLiveData.P.toFixed(1);
+        document.getElementById('live_k').innerText = currentLiveData.K.toFixed(1);
+        document.getElementById('live_t').innerHTML = currentLiveData.temp.toFixed(1) + '<span class="sensor-unit">°C</span>';
+        document.getElementById('live_h').innerHTML = currentLiveData.hum.toFixed(1) + '<span class="sensor-unit">%</span>';
+        document.getElementById('live_ph').innerText = currentLiveData.ph.toFixed(2);
+
+        analyzePlantHealth();
+        updateLiveChart(currentLiveData);
+    }
+
+    function analyzePlantHealth() {
+        const diagnostics = [];
+        const { temp, hum, ph, N, P, K } = currentLiveData;
+
+        if (temp > 32) diagnostics.push({ type: 'critical', msg: 'Heat stress detected. Yield at risk.', action: 'Activate Cooling System', fix: 'temp', amount: -10 });
+        else if (temp < 15) diagnostics.push({ type: 'warning', msg: 'Low temperature. Growth stunted.', action: 'Turn on Heaters', fix: 'temp', amount: 10 });
+        
+        if (hum < 40) diagnostics.push({ type: 'warning', msg: 'Low ambient humidity. Desiccation risk.', action: 'Engage Misters', fix: 'hum', amount: 30 });
+        else if (hum > 85) diagnostics.push({ type: 'critical', msg: 'High humidity. Risk of fungal infection.', action: 'Activate Ventilation', fix: 'hum', amount: -30 });
+
+        if (ph < 5.5) diagnostics.push({ type: 'warning', msg: 'Soil highly acidic. Nutrient lockout likely.', action: 'Dispense Liquid Lime', fix: 'ph', amount: 1.5 });
+        else if (ph > 7.5) diagnostics.push({ type: 'warning', msg: 'Soil alkaline.', action: 'Dispense Sulfur', fix: 'ph', amount: -1.0 });
+
+        if (N < 40 || P < 20 || K < 20) diagnostics.push({ type: 'warning', msg: 'Nutrient deficiency in soil matrix.', action: 'Inject NPK Solution', fix: 'N', amount: 50 });
+
+        const container = document.getElementById('health-diagnostics-container');
+        const mascot = document.getElementById('plant-mascot');
+        container.innerHTML = ''; 
+
+        if (diagnostics.length === 0) {
+            container.innerHTML = '<div class="health-item health-optimal" style="display:flex; align-items:center;">✅ All telemetry nominal. Plant environment is optimally balanced.</div>';
+            mascot.className = 'happy-plant'; // Mascot smiles and sways
+        } else {
+            mascot.className = 'sick-plant'; // Mascot droops and turns pale
+            diagnostics.forEach(diag => {
+                let cssClass = diag.type === 'critical' ? 'health-critical' : 'health-warning';
+                let icon = diag.type === 'critical' ? '🚨 ' : '⚠️ ';
+                container.innerHTML += `
+                    <div class="health-item ${cssClass} d-flex justify-content-between align-items-center">
+                        <div><strong>${icon}</strong> ${diag.msg}</div>
+                        <button class="btn-resolve" onclick="executeSystemHeal('${diag.fix}', ${diag.amount})">Execute: ${diag.action}</button>
+                    </div>`;
+            });
+        }
+    }
+
+    async function runPrediction(formData) {
+        const resultCard = document.getElementById('resultCard');
+        resultCard.style.opacity = '0';
+        resultCard.style.display = 'none';
+
+        try {
+            const response = await fetch('/predict', { method: 'POST', body: formData });
+            const data = await response.json();
+            
+            if(data.success) {
+                document.getElementById('resCrop').innerText = data.crop;
+                document.getElementById('resConf').innerText = data.confidence;
+                document.getElementById('resPrice').innerText = data.price;
+                
+                resultCard.style.display = 'block';
+                setTimeout(() => resultCard.style.opacity = '1', 100);
+            } else {
+                alert('System Action Denied: ' + data.error);
+            }
+        } catch (err) { alert('Connection to Neural Node Failed.'); }
+    }
+
+    document.getElementById('predictionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
+        btn.disabled = true;
+        
+        runPrediction(new FormData(this)).then(() => { btn.innerHTML = originalText; btn.disabled = false; });
+    });
+
+    function executeLivePrediction() {
+        const formData = new FormData();
+        formData.append('N', currentLiveData.N); formData.append('P', currentLiveData.P); formData.append('K', currentLiveData.K);
+        formData.append('temperature', currentLiveData.temp); formData.append('humidity', currentLiveData.hum);
+        formData.append('ph', currentLiveData.ph); formData.append('urban_area_proximity', currentLiveData.prox);
+        runPrediction(formData);
+    }
+
+    const ctx = document.getElementById('liveChart').getContext('2d');
+    const liveChart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: ['N', 'P', 'K', 'Temp', 'Humid', 'pH', 'Prox'],
+            datasets: [{
+                data: [0.85, 0.72, 0.65, 0.92, 0.88, 0.78, 0.45],
+                backgroundColor: 'rgba(0, 210, 106, 0.2)', borderColor: 'rgba(0, 210, 106, 1)',
+                pointBackgroundColor: '#0a84ff', pointBorderColor: '#fff', borderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { r: { angleLines: { color: 'rgba(255, 255, 255, 0.1)' }, grid: { color: 'rgba(255, 255, 255, 0.1)' }, pointLabels: { color: '#f5f5f7', font: { size: 12 } }, ticks: { display: false } } },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    function updateLiveChart(data) {
+        liveChart.data.datasets[0].data = [
+            Math.min(data.N / 200, 1), Math.min(data.P / 100, 1), Math.min(data.K / 100, 1),
+            Math.min(data.temp / 50, 1), Math.min(data.hum / 100, 1), Math.min(data.ph / 14, 1), 0.5
+        ];
+        liveChart.update();
+    }
+</script>
+</body>
+</html>
